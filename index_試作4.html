@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>幻覚世界 第4試作</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#08060b;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;overscroll-behavior:none;touch-action:none}
+button{font:inherit}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+.hidden{display:none!important}
+#title,#result{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:22px;background:radial-gradient(circle at 50% 35%,#261430,#07050a 72%)}
+.card{width:min(92vw,520px);padding:25px 22px;border:1px solid #694777;border-radius:22px;background:rgba(20,13,27,.97);box-shadow:0 24px 70px #0008}
+h1{font-size:28px;margin:0 0 12px;text-align:center}
+p{line-height:1.7;color:#d5cad9;font-size:14px}
+.main{width:100%;padding:16px;border:0;border-radius:15px;background:#d79be9;color:#190f1f;font-size:19px;font-weight:800;touch-action:manipulation}
+.small{font-size:12px;color:#a99caf;text-align:center}
+#hud{position:fixed;z-index:20;top:max(10px,env(safe-area-inset-top));left:10px;right:10px;display:flex;gap:8px;pointer-events:none}
+.hud{flex:1;padding:8px;border-radius:12px;background:#050308a8;border:1px solid #e1bef02e;text-align:center;font-size:12px}
+.bar{height:5px;background:#2f2633;border-radius:99px;margin-top:5px;overflow:hidden}
+.fill{height:100%;width:100%;background:#e5b8f4}#hpfill{background:#ef7699}
+#msg{position:fixed;z-index:25;left:50%;top:17%;transform:translateX(-50%);width:min(86vw,460px);padding:11px 15px;border-radius:13px;background:#000a;text-align:center;opacity:0;transition:.15s;pointer-events:none}
+#msg.show{opacity:1}
+#controls{position:fixed;z-index:30;inset:0;pointer-events:none}
+#joy{position:absolute;left:20px;bottom:max(26px,env(safe-area-inset-bottom));width:150px;height:150px;border-radius:50%;background:#ffffff0d;border:2px solid #ffffff20;pointer-events:auto;touch-action:none}
+#joyRing{position:absolute;inset:20px;border-radius:50%;border:1px solid #ffffff12}
+#knob{position:absolute;left:48px;top:48px;width:54px;height:54px;border-radius:50%;background:#dfb7ef70;border:1px solid #ffffff44;box-shadow:0 0 20px #c884e640}
+#actions{position:absolute;right:18px;bottom:max(24px,env(safe-area-inset-bottom));display:flex;align-items:flex-end;gap:12px;pointer-events:auto}
+.act{border-radius:50%;color:#fff;font-weight:800;touch-action:manipulation}
+#attack{width:98px;height:98px;border:2px solid #efafd0;background:#cd5ca0dd}
+#dodge{width:70px;height:70px;border:2px solid #b7b9ef;background:#6669a6dd}
+#hit{position:fixed;z-index:40;left:50%;top:40%;transform:translate(-50%,-50%);font-weight:900;font-size:24px;opacity:0;pointer-events:none}
+#hit.pop{animation:hit .2s ease-out}
+@keyframes hit{0%{opacity:1;transform:translate(-50%,-50%) scale(.7)}70%{opacity:1;transform:translate(-50%,-60%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-70%) scale(1)}}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud" class="hidden">
+  <div class="hud">HP <span id="hp">100</span><div class="bar"><div id="hpfill" class="fill"></div></div></div>
+  <div class="hud">現実感 <span id="san">100</span>%<div class="bar"><div id="sanfill" class="fill"></div></div></div>
+</div>
+<div id="msg"></div><div id="hit">HIT</div>
+
+<div id="controls" class="hidden">
+  <div id="joy"><div id="joyRing"></div><div id="knob"></div></div>
+  <div id="actions">
+    <button id="dodge" class="act">回避</button>
+    <button id="attack" class="act">攻撃</button>
+  </div>
+</div>
+
+<section id="title">
+  <div class="card">
+    <h1>幻覚世界 — 第4試作</h1>
+    <p>今回は<strong>操作感だけを重点改善</strong>した試作です。</p>
+    <p>左下に固定スティックを常時表示。360°入力、入力に対する反応を高速化、指を離した瞬間に停止します。</p>
+    <p>攻撃時は近い敵へ軽く方向補正し、移動しながらでも攻撃できます。</p>
+    <button id="start" class="main">はじめる</button>
+    <div class="small">今回の合否基準は「キャラを動かしていてストレスが少ないか」。</div>
+  </div>
+</section>
+
+<section id="result" class="hidden">
+  <div class="card">
+    <h1>TEST COMPLETE</h1>
+    <p>敵をすべて倒しました。今回は「重さ」「もどかしさ」「360°移動」「攻撃方向補正」の確認用です。</p>
+    <button id="retry" class="main">もう一度</button>
+  </div>
+</section>
+
+<script>
+(()=>{
+const c=document.querySelector('#game'),ctx=c.getContext('2d'),$=s=>document.querySelector(s);
+let W,H,D,run=false,last=0,freeze=0,shake=0,flash=0;
+let p,enemies,particles=[],keys={};
+const TW=80,TH=40; let cam={x:0,y:0};
+
+function resize(){W=innerWidth;H=innerHeight;D=Math.max(1,devicePixelRatio||1);c.width=W*D;c.height=H*D;c.style.width=W+'px';c.style.height=H+'px';ctx.setTransform(D,0,0,D,0,0)}
+addEventListener('resize',resize);resize();
+
+function iso(x,y,z=0){return{x:(x-y)*TW/2-cam.x+W/2,y:(x+y)*TH/2-z-cam.y+H*.41}}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const norm=(x,y)=>{let m=Math.hypot(x,y)||1;return{x:x/m,y:y/m}};
+const dot=(a,b,c,d)=>a*c+b*d;
+
+function mk(x,y){return{x,y,hp:3,state:'idle',cool:.5+Math.random(),timer:0,ang:0,alive:true,white:0}}
+function reset(){p={x:0,y:0,hp:100,san:100,face:{x:1,y:0},atk:0,dodge:0,inv:0};enemies=[mk(4,1),mk(-3,4),mk(5,5),mk(-5,-2),mk(2,-5)];particles=[];freeze=shake=flash=0;last=0;updateHUD()}
+function updateHUD(){$('#hp').textContent=Math.max(0,Math.round(p.hp));$('#san').textContent=Math.max(0,Math.round(p.san));$('#hpfill').style.width=clamp(p.hp,0,100)+'%';$('#sanfill').style.width=clamp(p.san,0,100)+'%'}
+function msg(t){let m=$('#msg');m.textContent=t;m.classList.add('show');clearTimeout(msg.t);msg.t=setTimeout(()=>m.classList.remove('show'),700)}
+
+function start(){
+ reset();$('#title').classList.add('hidden');$('#result').classList.add('hidden');$('#hud').classList.remove('hidden');$('#controls').classList.remove('hidden');run=true;msg('操作感テスト開始');requestAnimationFrame(loop)
+}
+$('#start').onclick=start;$('#retry').onclick=start;
+
+const joy=$('#joy'),knob=$('#knob');
+let jid=null,jx=0,jy=0,jp=0;
+function setJoyFrom(e){
+ const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+ let dx=e.clientX-cx,dy=e.clientY-cy,lim=48,m=Math.hypot(dx,dy);
+ jp=Math.min(1,m/lim);
+ if(m>lim){dx=dx/m*lim;dy=dy/m*lim}
+ jx=dx/lim;jy=dy/lim;
+ knob.style.transform=`translate(${dx}px,${dy}px)`;
+}
+joy.addEventListener('pointerdown',e=>{e.preventDefault();jid=e.pointerId;joy.setPointerCapture(jid);setJoyFrom(e)});
+joy.addEventListener('pointermove',e=>{if(e.pointerId===jid){e.preventDefault();setJoyFrom(e)}});
+function joyEnd(e){if(e.pointerId===jid){jid=null;jx=jy=jp=0;knob.style.transform='translate(0,0)'}}
+joy.addEventListener('pointerup',joyEnd);joy.addEventListener('pointercancel',joyEnd);
+
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=1;if(e.code==='Space'){e.preventDefault();attack()}});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
+
+function tone(freq,dur,type='sine',vol=.04){
+ try{
+  const A=window.AudioContext||window.webkitAudioContext;tone.a=tone.a||new A();
+  let a=tone.a,o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(vol,a.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001,a.currentTime+dur);o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+dur)
+ }catch(e){}
+}
+function burst(x,y,n){for(let i=0;i<n;i++)particles.push({x,y,z:8+Math.random()*18,vx:(Math.random()-.5)*2,vy:(Math.random()-.5)*2,vz:1+Math.random()*2,life:.22+Math.random()*.32})}
+function haptic(){try{if(navigator.vibrate)navigator.vibrate(18)}catch(e){}}
+function hitFX(e){freeze=.035;shake=.12;flash=.055;haptic();tone(150,.06,'square',.03);burst(e.x,e.y,12);let h=$('#hit');h.classList.remove('pop');void h.offsetWidth;h.classList.add('pop')}
+
+function nearestEnemy(){
+ let best=null,bd=999;
+ enemies.forEach(e=>{if(!e.alive)return;let d=Math.hypot(e.x-p.x,e.y-p.y);if(d<bd){bd=d;best=e}});
+ return {best,bd};
+}
+function attack(){
+ if(!run||p.atk>0)return;
+ let {best,bd}=nearestEnemy();
+ if(best&&bd<4.2){
+   let n=norm(best.x-p.x,best.y-p.y);
+   // 軽いオートエイム補正
+   p.face=norm(p.face.x*.45+n.x*.55,p.face.y*.45+n.y*.55);
+ }
+ p.atk=.22;tone(330,.04,'sawtooth',.016);
+ let hitAny=false;
+ enemies.forEach(e=>{
+   if(!e.alive)return;
+   let vx=e.x-p.x,vy=e.y-p.y,d=Math.hypot(vx,vy);
+   if(d<3.35&&d>.01){let n=norm(vx,vy);if(dot(n.x,n.y,p.face.x,p.face.y)>.08){
+      e.hp--;e.x+=n.x*.55;e.y+=n.y*.55;e.white=.10;hitFX(e);hitAny=true;
+      if(e.hp<=0){e.alive=false;burst(e.x,e.y,20)}
+   }}
+ });
+ if(!hitAny) msg('MISS');
+}
+$('#attack').addEventListener('pointerdown',e=>{e.preventDefault();attack()});
+
+function dodge(){
+ if(!run||p.dodge>0)return;
+ p.dodge=.28;p.inv=.42;
+ p.x+=p.face.x*1.45;p.y+=p.face.y*1.45;
+ tone(220,.05,'sine',.018)
+}
+$('#dodge').addEventListener('pointerdown',e=>{e.preventDefault();dodge()});
+
+function update(dt){
+ if(freeze>0){freeze-=dt;return}
+ let dx=jx,dy=jy,pow=jp;
+ if(keys.w||keys.arrowup){dy-=1;pow=1} if(keys.s||keys.arrowdown){dy+=1;pow=1}
+ if(keys.a||keys.arrowleft){dx-=1;pow=1} if(keys.d||keys.arrowright){dx+=1;pow=1}
+ let m=Math.hypot(dx,dy);
+ if(m>.03){
+   let n=norm(dx,dy);
+   // 以前より速く、加速待ちなし。少し倒しでも反応。
+   let speed=2.6+3.4*pow;
+   p.x+=n.x*speed*dt;p.y+=n.y*speed*dt;p.face=n;
+ }
+ p.x=clamp(p.x,-8,8);p.y=clamp(p.y,-8,8);
+ if(p.atk>0)p.atk-=dt;if(p.dodge>0)p.dodge-=dt;if(p.inv>0)p.inv-=dt;if(shake>0)shake-=dt;if(flash>0)flash-=dt;
+
+ enemies.forEach(e=>{
+   if(!e.alive)return;
+   if(e.white>0)e.white-=dt;
+   let vx=p.x-e.x,vy=p.y-e.y,d=Math.hypot(vx,vy);
+   if(e.state==='idle'){
+     if(d<5.2&&d>1.9){let n=norm(vx,vy);e.x+=n.x*.62*dt;e.y+=n.y*.62*dt}
+     e.cool-=dt;
+     if(d<2.45&&e.cool<=0){e.state='warn';e.timer=.82;e.ang=Math.atan2(vy,vx)}
+   }else{
+     e.timer-=dt;
+     if(e.timer<=0){
+       let dir={x:Math.cos(e.ang),y:Math.sin(e.ang)},pv={x:p.x-e.x,y:p.y-e.y},pd=Math.hypot(pv.x,pv.y),pn=norm(pv.x,pv.y);
+       if(pd<2.8&&dot(pn.x,pn.y,dir.x,dir.y)>.5&&p.inv<=0){p.hp-=14;p.san-=5;p.inv=.65;shake=.17;flash=.16;tone(65,.1,'square',.035);p.x+=pn.x*.9;p.y+=pn.y*.9;msg('被弾')}
+       e.state='idle';e.cool=1.25;
+     }
+   }
+ });
+ p.san=Math.max(0,p.san-.06*dt);
+ particles.forEach(q=>{q.x+=q.vx*dt;q.y+=q.vy*dt;q.z+=q.vz*17*dt;q.vz-=5*dt;q.life-=dt});particles=particles.filter(q=>q.life>0);
+ updateHUD();
+ // カメラ追従を速くして重さを軽減
+ cam.x+=(((p.x-p.y)*TW/2)-cam.x)*.20;
+ cam.y+=(((p.x+p.y)*TH/2)-cam.y)*.20;
+ if(p.hp<=0){run=false;finish(false)}
+ if(enemies.every(e=>!e.alive)){run=false;finish(true)}
+}
+function finish(win){
+ $('#hud').classList.add('hidden');$('#controls').classList.add('hidden');$('#result').classList.remove('hidden');
+ $('#result h1').textContent=win?'TEST COMPLETE':'GAME OVER';
+ $('#result p').textContent=win?'敵をすべて倒しました。今回は「重さ」「もどかしさ」「固定スティック」「攻撃方向補正」の確認用です。':'赤い攻撃予兆から離れるか、回避を使ってみてください。';
+}
+
+function poly(P,f,s){ctx.beginPath();ctx.moveTo(P[0].x,P[0].y);P.slice(1).forEach(q=>ctx.lineTo(q.x,q.y));ctx.closePath();ctx.fillStyle=f;ctx.fill();if(s){ctx.strokeStyle=s;ctx.stroke()}}
+function tile(x,y){let q=iso(x,y),a={x:q.x,y:q.y-TH/2},b={x:q.x+TW/2,y:q.y},d={x:q.x,y:q.y+TH/2},e={x:q.x-TW/2,y:q.y};poly([a,b,d,e],((x+y)&1)?'#17101c':'#130d17','#ffffff07')}
+function girl(){
+ let s=iso(p.x,p.y);ctx.save();ctx.translate(s.x,s.y-22);let a=Math.atan2(p.face.y,p.face.x);
+ ctx.fillStyle='#0006';ctx.beginPath();ctx.ellipse(0,31,18,7,0,0,7);ctx.fill();
+ ctx.strokeStyle='#17131c';ctx.lineWidth=6;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-5,14);ctx.lineTo(-7,30);ctx.moveTo(5,14);ctx.lineTo(8,30);ctx.stroke();
+ ctx.fillStyle='#221925';ctx.beginPath();ctx.moveTo(-13,-2);ctx.lineTo(13,-2);ctx.lineTo(17,18);ctx.lineTo(-17,18);ctx.closePath();ctx.fill();
+ ctx.fillStyle='#ead5e7';ctx.fillRect(-11,-18,22,18);
+ ctx.fillStyle='#f2d8dc';ctx.beginPath();ctx.arc(0,-30,10,0,7);ctx.fill();
+ ctx.fillStyle='#171219';ctx.beginPath();ctx.arc(0,-34,14,Math.PI,Math.PI*2);ctx.fill();ctx.fillRect(-14,-35,28,8);
+ ctx.strokeStyle='#d8b7c9';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(0,-10);ctx.lineTo(Math.cos(a)*20,Math.sin(a)*12-7);ctx.stroke();
+ if(p.atk>0){ctx.strokeStyle='#f4d0ff';ctx.lineWidth=5;ctx.beginPath();ctx.arc(0,0,64,a-.75,a+.75);ctx.stroke()}
+ ctx.restore();
+}
+function enemy(e){
+ let s=iso(e.x,e.y);ctx.save();ctx.translate(s.x,s.y-18);
+ if(e.state==='warn'){ctx.globalAlpha=.34;ctx.fillStyle='#ff365f';ctx.beginPath();ctx.moveTo(0,18);ctx.arc(0,18,110,e.ang-.65,e.ang+.65);ctx.fill();ctx.globalAlpha=1}
+ ctx.fillStyle='#0005';ctx.beginPath();ctx.ellipse(0,25,18,7,0,0,7);ctx.fill();
+ ctx.fillStyle=e.white>0?'#fff':'#241025';ctx.strokeStyle='#d64d86';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-15,17);ctx.quadraticCurveTo(-25,-10,-8,-25);ctx.quadraticCurveTo(10,-38,22,-12);ctx.quadraticCurveTo(30,10,12,25);ctx.quadraticCurveTo(-5,34,-15,17);ctx.fill();ctx.stroke();
+ ctx.fillStyle='#eee';ctx.beginPath();ctx.ellipse(-5,-7,3,6,.3,0,7);ctx.fill();ctx.restore();
+}
+function draw(){
+ ctx.clearRect(0,0,W,H);let sx=shake>0?(Math.random()-.5)*8:0,sy=shake>0?(Math.random()-.5)*8:0;
+ ctx.save();ctx.translate(sx,sy);
+ for(let y=-9;y<=9;y++)for(let x=-9;x<=9;x++)tile(x,y);
+ let all=enemies.filter(e=>e.alive).map(e=>({d:e.x+e.y,t:0,e}));all.push({d:p.x+p.y,t:1});
+ all.sort((a,b)=>a.d-b.d).forEach(o=>o.t?girl():enemy(o.e));
+ particles.forEach(q=>{let s=iso(q.x,q.y,q.z);ctx.globalAlpha=Math.max(0,q.life*2);ctx.fillStyle='#f1c5ff';ctx.fillRect(s.x-2,s.y-2,4,4)});
+ ctx.globalAlpha=1;ctx.restore();
+ if(flash>0){ctx.fillStyle=`rgba(255,30,75,${flash*1.7})`;ctx.fillRect(0,0,W,H)}
+}
+function loop(t){
+ if(!run)return;
+ if(!last)last=t;
+ let dt=Math.min(.025,(t-last)/1000);last=t;
+ update(dt);draw();requestAnimationFrame(loop)
+}
+document.addEventListener('gesturestart',e=>e.preventDefault());
+document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+})();
+</script>
+</body>
+</html>
