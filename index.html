@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
-<title>幻覚世界 第5試作</title>
+<title>幻覚世界 第6試作</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#08060b;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;overscroll-behavior:none;touch-action:none}
@@ -56,12 +56,12 @@ p{line-height:1.7;color:#d5cad9;font-size:14px}
 
 <section id="title">
   <div class="card">
-    <h1>幻覚世界 — 第5試作</h1>
-    <p>今回は<strong>近距離戦の緊張感と躍動感</strong>を重点調整した試作です。</p>
+    <h1>幻覚世界 — 第6試作</h1>
+    <p>今回は<strong>通常攻撃の距離感だけを再調整</strong>した試作です。</p>
     <p>試作4で改善した固定スティックと360°移動はそのまま維持しています。</p>
-    <p>通常攻撃を短い近接攻撃に変更。回避直後だけ短時間、カウンター攻撃の間合いが少し伸びます。</p>
+    <p>通常攻撃は「密着しなくても当たるが、離れすぎると届かない」中距離寄りの近接に調整。回避直後のカウンターは少しだけ長めです。</p>
     <button id="start" class="main">はじめる</button>
-    <div class="small">今回の合否基準は「近づく怖さ・避ける緊張感・反撃する気持ちよさ」があるか。</div>
+    <div class="small">今回の合否基準は「敵1体分ほど離れていても当たる」「でも試作4ほど広すぎない」距離感になっているか。</div>
   </div>
 </section>
 
@@ -137,7 +137,7 @@ function attack(){
  let {best,bd}=nearestEnemy();
  if(best&&bd<2.55){let n=norm(best.x-p.x,best.y-p.y);p.face=norm(p.face.x*.78+n.x*.22,p.face.y*.78+n.y*.22)}
  p.atk=.20;tone(340,.04,'sawtooth',.016);
- const counterActive=p.counter>0,range=counterActive?2.35:1.72,cone=counterActive?.18:.34;
+ const counterActive=p.counter>0,range=counterActive?2.75:2.25,cone=counterActive?.20:.30;
  let hitAny=false;
  enemies.forEach(e=>{
    if(!e.alive)return;
@@ -205,7 +205,7 @@ function update(dt){
 function finish(win){
  $('#hud').classList.add('hidden');$('#controls').classList.add('hidden');$('#result').classList.remove('hidden');
  $('#result h1').textContent=win?'TEST COMPLETE':'GAME OVER';
- $('#result p').textContent=win?'敵をすべて倒しました。今回は「近づく怖さ」「攻撃距離」「回避後カウンター」の手応えを確認してください。':'赤い攻撃予兆から離れるか、回避を使ってみてください。';
+ $('#result p').textContent=win?'敵をすべて倒しました。今回は通常攻撃の距離が「密着すぎず・広すぎず」になったかを確認してください。':'赤い攻撃予兆から離れるか、回避を使ってみてください。';
 }
 
 function poly(P,f,s){ctx.beginPath();ctx.moveTo(P[0].x,P[0].y);P.slice(1).forEach(q=>ctx.lineTo(q.x,q.y));ctx.closePath();ctx.fillStyle=f;ctx.fill();if(s){ctx.strokeStyle=s;ctx.stroke()}}
@@ -219,7 +219,7 @@ function girl(){
  ctx.fillStyle='#f2d8dc';ctx.beginPath();ctx.arc(0,-30,10,0,7);ctx.fill();
  ctx.fillStyle='#171219';ctx.beginPath();ctx.arc(0,-34,14,Math.PI,Math.PI*2);ctx.fill();ctx.fillRect(-14,-35,28,8);
  ctx.strokeStyle='#d8b7c9';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(0,-10);ctx.lineTo(Math.cos(a)*20,Math.sin(a)*12-7);ctx.stroke();
- if(p.atk>0){ctx.strokeStyle=p.counter>0?'#fff':'#f4d0ff';ctx.lineWidth=5;ctx.beginPath();ctx.arc(0,0,p.counter>0?48:36,a-.58,a+.58);ctx.stroke()}
+ if(p.atk>0){ctx.strokeStyle=p.counter>0?'#fff':'#f4d0ff';ctx.lineWidth=5;ctx.beginPath();ctx.arc(0,0,p.counter>0?54:46,a-.62,a+.62);ctx.stroke()}
  ctx.restore();
 }
 function enemy(e){
