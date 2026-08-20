@@ -65,10 +65,99 @@ const joy=$('#joy'),knob=$('#knob');function setJoy(e){let r=joy.getBoundingClie
 joy.onpointerdown=e=>{e.preventDefault();jid=e.pointerId;joy.setPointerCapture(jid);setJoy(e)};joy.onpointermove=e=>{if(e.pointerId===jid)setJoy(e)};function je(e){if(e.pointerId===jid){jid=null;jx=jy=jp=0;knob.style.transform=''}}joy.onpointerup=je;joy.onpointercancel=je;
 function attack(){if(!run||p.atk>0)return;p.atk=.24;tone(340,.05);let hit=false;enemies.forEach(e=>{if(!e.alive)return;let vx=e.x-p.x,vy=e.y-p.y,d=Math.hypot(vx,vy),n=norm(vx,vy);if(d<2.35&&dot(n.x,n.y,p.face.x,p.face.y)>.28){e.hp--;e.white=.12;e.x+=n.x*.42;e.y+=n.y*.42;hit=true;shake=.08;tone(145,.06,.035);try{navigator.vibrate&&navigator.vibrate(18)}catch(_){}if(e.hp<=0)e.alive=false}});if(!hit)msg('MISS')}$('#attack').onpointerdown=e=>{e.preventDefault();attack()};
 function dodge(){if(!run||p.dodge>0||p.dodgeCd>0)return;let dx=jx,dy=jy;if(Math.hypot(dx,dy)<.12){dx=p.face.x;dy=p.face.y}let n=norm(dx,dy);p.dashX=n.x;p.dashY=n.y;p.face=n;p.dodge=.24;p.inv=.30;p.dodgeCd=.85;tone(235,.06)}$('#dodge').onpointerdown=e=>{e.preventDefault();dodge()};
-function update(dt){let m=Math.hypot(jx,jy);p.moving=m>.04;
-if(p.dodge>0){p.x+=p.dashX*8.6*dt;p.y+=p.dashY*8.6*dt}else if(m>.03){let n=norm(jx,jy),sp=2.7+3.5*jp;p.x+=n.x*sp*dt;p.y+=n.y*sp*dt;p.face=n}
-p.x=clamp(p.x,-6.2,6.2);p.y=clamp(p.y,-5.2,5.2);if(p.atk>0)p.atk-=dt;if(p.dodge>0)p.dodge-=dt;if(p.inv>0)p.inv-=dt;if(p.dodgeCd>0)p.dodgeCd-=dt;if(shake>0)shake-=dt;
-enemies.forEach(e=>{if(!e.alive)return;if(e.white>0)e.white-=dt;let vx=p.x-e.x,vy=p.y-e.y,d=Math.hypot(vx,vy);if(e.state==='idle'){if(d<6&&d>1.7){let n=norm(vx,vy),sp=e.type==='mirror'?.48:.68;e.x+=n.x*sp*dt;e.y+=n.y*sp*dt}e.cool-=dt;if(d<2.05&&e.cool<=0){e.state='warn';e.timer=e.type==='mirror'?.9:.68;e.ang=Math.atan2(vy,vx)}}else{e.timer-=dt;if(e.timer<=0){let dir={x:Math.cos(e.ang),y:Math.sin(e.ang)},pv={x:p.x-e.x,y:p.y-e.y},pd=Math.hypot(pv.x,pv.y),pn=norm(pv.x,pv.y);if(pd<2.3&&dot(pn.x,pn.y,dir.x,dir.y)>.55&&p.inv<=0){p.hp-=e.type==='mirror'?18:12;p.san-=e.type==='mirror'?10:5;shake=.18;tone(85,.12,.04);msg(e.type==='mirror'?'「あなたなんて嫌い」':'視線が刺さる')}e.state='idle';e.cool=1.5}}}});hud();cam.x+=(((p.x-p.y)*TW/2)-cam.x)*.14;cam.y+=(((p.x+p.y)*TH/2)-cam.y)*.14;if(enemies.every(e=>!e.alive)){run=false;setTimeout(()=>{$('#result').classList.remove('hidden');$('#controls').classList.add('hidden')},500)}}
+function update(dt){
+  let m=Math.hypot(jx,jy);
+  p.moving=m>.04;
+
+  if(p.dodge>0){
+    p.x+=p.dashX*8.6*dt;
+    p.y+=p.dashY*8.6*dt;
+  }else if(m>.03){
+    let n=norm(jx,jy),sp=2.7+3.5*jp;
+    p.x+=n.x*sp*dt;
+    p.y+=n.y*sp*dt;
+    p.face=n;
+  }
+
+  p.x=clamp(p.x,-6.2,6.2);
+  p.y=clamp(p.y,-5.2,5.2);
+
+  if(p.atk>0)p.atk-=dt;
+  if(p.dodge>0)p.dodge-=dt;
+  if(p.inv>0)p.inv-=dt;
+  if(p.dodgeCd>0)p.dodgeCd-=dt;
+  if(shake>0)shake-=dt;
+
+  enemies.forEach(e=>{
+    if(!e.alive)return;
+    if(e.white>0)e.white-=dt;
+
+    let vx=p.x-e.x,vy=p.y-e.y,d=Math.hypot(vx,vy);
+
+    if(e.state==='idle'){
+      if(d<6&&d>1.7){
+        let n=norm(vx,vy),sp=e.type==='mirror'?.48:.68;
+        e.x+=n.x*sp*dt;
+        e.y+=n.y*sp*dt;
+      }
+
+      e.cool-=dt;
+
+      if(d<2.05&&e.cool<=0){
+        e.state='warn';
+        e.timer=e.type==='mirror'?.9:.68;
+        e.ang=Math.atan2(vy,vx);
+      }
+    }else{
+      e.timer-=dt;
+
+      if(e.timer<=0){
+        let dir={x:Math.cos(e.ang),y:Math.sin(e.ang)};
+        let pv={x:p.x-e.x,y:p.y-e.y};
+        let pd=Math.hypot(pv.x,pv.y);
+        let pn=norm(pv.x,pv.y);
+
+        if(pd<2.3&&dot(pn.x,pn.y,dir.x,dir.y)>.55&&p.inv<=0){
+          p.hp-=e.type==='mirror'?18:12;
+          p.san-=e.type==='mirror'?10:5;
+          shake=.18;
+          tone(85,.12,.04);
+          msg(e.type==='mirror'?'「あなたなんて嫌い」':'視線が刺さる');
+        }
+
+        e.state='idle';
+        e.cool=1.5;
+      }
+    }
+  });
+
+  hud();
+
+  cam.x+=(((p.x-p.y)*TW/2)-cam.x)*.14;
+  cam.y+=(((p.x+p.y)*TH/2)-cam.y)*.14;
+
+  if(p.hp<=0){
+    p.hp=0;
+    run=false;
+    msg('GAME OVER');
+    setTimeout(()=>{
+      $('#title h1').textContent='GAME OVER';
+      $('#title p').textContent='もう一度、教室へ入りますか？';
+      $('#title').classList.remove('hidden');
+      $('#controls').classList.add('hidden');
+      $('#hud').classList.add('hidden');
+    },500);
+    return;
+  }
+
+  if(enemies.every(e=>!e.alive)){
+    run=false;
+    setTimeout(()=>{
+      $('#result').classList.remove('hidden');
+      $('#controls').classList.add('hidden');
+    },500);
+  }
+}
 function floor(){let sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#5a3445');sky.addColorStop(.32,'#211720');sky.addColorStop(1,'#0d0c11');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
 ctx.fillStyle='#1d2a27';ctx.fillRect(W*.18,H*.12,W*.64,H*.12);ctx.strokeStyle='#79676d';ctx.strokeRect(W*.18,H*.12,W*.64,H*.12);ctx.fillStyle='#cab9c055';ctx.font='12px sans-serif';ctx.fillText('普通に笑って　　空気を読んで　　迷惑をかけないで',W*.23,H*.18);
 for(let i=0;i<4;i++){ctx.fillStyle=i%2?'#d99da520':'#b27f9722';ctx.fillRect(W*.03+i*W*.245,H*.035,W*.20,H*.17)}
